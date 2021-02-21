@@ -34,6 +34,188 @@
 
 好， 就用 LinkedList 了，我们开始实现，具体看视频。这次实现我们还将演示自定义异常和测试异常。
 
+```py
+# -*- coding: utf-8 -*-
+
+from collections import deque
+
+# NOTE：注意这里是第三章 linked_list.py 里的内容，为了使文件自包含，我直接拷贝过来的
+
+
+class Node(object):
+    def __init__(self, value=None, next=None):   # 这里我们 root 节点默认都是 None，所以都给了默认值
+        self.value = value
+        self.next = next
+
+    def __str__(self):
+        """方便你打出来调试，复杂的代码可能需要断点调试"""
+        return '<Node: value: {}, next={}>'.format(self.value, self.next)
+
+    __repr__ = __str__
+
+
+class LinkedList(object):
+    """ 链接表 ADT
+    [root] -> [node0] -> [node1] -> [node2]
+    """
+
+    def __init__(self, maxsize=None):
+        """
+        :param maxsize: int or None, 如果是 None，无限扩充
+        """
+        self.maxsize = maxsize
+        self.root = Node()     # 默认 root 节点指向 None
+        self.tailnode = None
+        self.length = 0
+
+    def __len__(self):
+        return self.length
+
+    def append(self, value):    # O(1)
+        if self.maxsize is not None and len(self) >= self.maxsize:
+            raise Exception('LinkedList is Full')
+        node = Node(value)    # 构造节点
+        tailnode = self.tailnode
+        if tailnode is None:    # 还没有 append 过，length = 0， 追加到 root 后
+            self.root.next = node
+        else:     # 否则追加到最后一个节点的后边，并更新最后一个节点是 append 的节点
+            tailnode.next = node
+        self.tailnode = node
+        self.length += 1
+
+    def appendleft(self, value):
+        headnode = self.root.next
+        node = Node(value)
+        self.root.next = node
+        node.next = headnode
+        self.length += 1
+
+    def __iter__(self):
+        for node in self.iter_node():
+            yield node.value
+
+    def iter_node(self):
+        """遍历 从 head 节点到 tail 节点"""
+        curnode = self.root.next
+        while curnode is not self.tailnode:    # 从第一个节点开始遍历
+            yield curnode
+            curnode = curnode.next    # 移动到下一个节点
+        yield curnode
+
+    def remove(self, value):    # O(n)
+        """ 删除包含值的一个节点，将其前一个节点的 next 指向被查询节点的下一个即可
+        :param value:
+        """
+        prevnode = self.root    #
+        curnode = self.root.next
+        for curnode in self.iter_node():
+            if curnode.value == value:
+                prevnode.next = curnode.next
+                del curnode
+                self.length -= 1
+                return 1  # 表明删除成功
+            else:
+                prevnode = curnode
+        return -1  # 表明删除失败
+
+    def find(self, value):    # O(n)
+        """ 查找一个节点，返回序号，从 0 开始
+        :param value:
+        """
+        index = 0
+        for node in self.iter_node():   # 我们定义了 __iter__，这里就可以用 for 遍历它了
+            if node.value == value:
+                return index
+            index += 1
+        return -1    # 没找到
+
+    def popleft(self):    # O(1)
+        """ 删除第一个链表节点
+        """
+        if self.root.next is None:
+            raise Exception('pop from empty LinkedList')
+        headnode = self.root.next
+        self.root.next = headnode.next
+        self.length -= 1
+        value = headnode.value
+        del headnode
+        return value
+
+    def clear(self):
+        for node in self.iter_node():
+            del node
+        self.root.next = None
+        self.length = 0
+
+######################################################
+# 下边是 Queue 实现
+######################################################
+
+
+class EmptyError(Exception):
+    """自定义异常"""
+    pass
+
+
+class Queue(object):
+    def __init__(self, maxsize=None):
+        self.maxsize = maxsize
+        self._item_link_list = LinkedList()
+
+    def __len__(self):
+        return len(self._item_link_list)
+
+    def push(self, value):    # O(1)
+        """ 队尾添加元素 """
+        return self._item_link_list.append(value)
+
+    def pop(self):
+        """队列头部删除元素"""
+        if len(self) <= 0:
+            raise EmptyError('empty queue')
+        return self._item_link_list.popleft()
+
+
+def test_queue():
+    q = Queue()
+    q.push(0)
+    q.push(1)
+    q.push(2)
+
+    assert len(q) == 3
+
+    assert q.pop() == 0
+    assert q.pop() == 1
+    assert q.pop() == 2
+
+    import pytest    # pip install pytest
+    with pytest.raises(EmptyError) as excinfo:   # 我们来测试是否真的抛出了异常
+        q.pop()   # 继续调用会抛出异常
+    assert 'empty queue' == str(excinfo.value)
+
+
+class MyQueue:
+    """
+    使用 collections.deque 可以迅速实现一个队列
+    """
+    def __init__(self):
+        self.items = deque()
+
+    def append(self, val):
+        return self.items.append(val)
+
+    def pop(self):
+        return self.items.popleft()
+
+    def __len__(self):
+        return len(self.items)
+
+    def empty(self):
+        return len(self.items) == 0
+
+    def front(self):
+        return self.items[0]
+```
 
 # 用数组实现队列
 
@@ -61,6 +243,88 @@ for i in range(100):
 
 我们来实现一个空间有限的循环队列。ArrayQueue，它的实现很简单，但是缺点是需要预先知道队列的长度来分配内存。
 
+```py
+# -*- coding: utf-8 -*-
+
+
+# NOTE: 从 array_and_list 第一章拷贝的代码
+class Array(object):
+
+    def __init__(self, size=32):
+        self._size = size
+        self._items = [None] * size
+
+    def __getitem__(self, index):
+        return self._items[index]
+
+    def __setitem__(self, index, value):
+        self._items[index] = value
+
+    def __len__(self):
+        return self._size
+
+    def clear(self, value=None):
+        for i in range(len(self._items)):
+            self._items[i] = value
+
+    def __iter__(self):
+        for item in self._items:
+            yield item
+
+
+class FullError(Exception):
+    pass
+
+
+class ArrayQueue(object):
+    def __init__(self, maxsize):
+        self.maxsize = maxsize
+        self.array = Array(maxsize)
+        self.head = 0
+        self.tail = 0
+
+    def push(self, value):
+        if len(self) >= self.maxsize:
+            raise FullError('queue full')
+        self.array[self.head % self.maxsize] = value
+        self.head += 1
+
+    def pop(self):
+        value = self.array[self.tail % self.maxsize]
+        self.tail += 1
+        return value
+
+    def __len__(self):
+        return self.head - self.tail
+
+
+def test_queue():
+    import pytest    # pip install pytest
+    size = 5
+    q = ArrayQueue(size)
+    for i in range(size):
+        q.push(i)
+
+    with pytest.raises(FullError) as excinfo:   # 我们来测试是否真的抛出了异常
+        q.push(size)
+    assert 'full' in str(excinfo.value)
+
+    assert len(q) == 5
+
+    assert q.pop() == 0
+    assert q.pop() == 1
+
+    q.push(5)
+
+    assert len(q) == 4
+
+    assert q.pop() == 2
+    assert q.pop() == 3
+    assert q.pop() == 4
+    assert q.pop() == 5
+
+    assert len(q) == 0
+```
 
 # 双端队列 Double ended Queue
 看了视频相信你已经会实现队列了，你可能还听过双端队列。上边讲到的队列 队头出，尾尾进，我们如果想头部和尾巴都能进能出呢？
